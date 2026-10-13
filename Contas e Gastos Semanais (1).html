@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-black text-white">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Contas Semanais</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brandGreen: '#10B981',
+                        brandGreenHover: '#059669',
+                        statusPending: '#FBBF24',
+                        statusOverdue: '#EF4444',
+                        statusPaid: '#10B981',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom status underline indicator for pending items */
+        .status-pending-underline {
+            text-decoration: underline;
+            text-decoration-color: #FBBF24;
+            text-decoration-thickness: 3px;
+            text-underline-offset: 4px;
+        }
+        /* Custom Scrollbar for dark theme */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111111;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555555;
+        }
+    </style>
+</head>
+<body class="h-full bg-black text-neutral-100 font-sans antialiased flex flex-col justify-between">
+
+    <div class="min-h-full flex flex-col">
+        <!-- Top Navbar -->
+        <header class="border-b border-neutral-800 bg-neutral-950/80 backdrop-blur sticky top-0 z-20">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-white text-black font-bold flex items-center justify-center text-xl tracking-tighter">
+                        $
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-white">Never + Duro</h1>
+                        <p class="text-xs text-neutral-400">Controle semanal de contas e gastos</p>
+                    </div>
+                </div>
+
+                <!-- Action button to open modal -->
+                <button onclick="openModal()" class="bg-brandGreen hover:bg-brandGreenHover text-black font-semibold px-4 py-2.5 rounded-xl transition duration-200 shadow-lg shadow-emerald-950/30 flex items-center space-x-2 text-sm">
+                    <i class="fa-solid fa-plus text-base"></i>
+                    <span>Nova Conta</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+            <!-- Summary KPI Dashboard -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-neutral-400 uppercase tracking-wider">Total na Semana</span>
+                        <span class="p-2 bg-neutral-800 rounded-lg text-neutral-300"><i class="fa-solid fa-wallet"></i></span>
+                    </div>
+                    <div class="mt-4">
+                        <div id="kpi-total" class="text-2xl sm:text-3xl font-bold text-white">R$ 0,00</div>
+                        <p class="text-xs text-neutral-500 mt-1">Soma de todas as obrigações da semana</p>
+                    </div>
+                </div>
+
+                <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-amber-400 uppercase tracking-wider">Pendente / Restante</span>
+                        <span class="p-2 bg-amber-950/40 text-amber-400 rounded-lg"><i class="fa-solid fa-clock"></i></span>
+                    </div>
+                    <div class="mt-4">
+                        <div id="kpi-pending" class="text-2xl sm:text-3xl font-bold text-amber-400">R$ 0,00</div>
+                        <p id="kpi-pending-count" class="text-xs text-neutral-500 mt-1">0 contas a vencer</p>
+                    </div>
+                </div>
+
+                <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Pago / Em Dia</span>
+                        <span class="p-2 bg-emerald-950/40 text-emerald-400 rounded-lg"><i class="fa-solid fa-check-circle"></i></span>
+                    </div>
+                    <div class="mt-4">
+                        <div id="kpi-paid" class="text-2xl sm:text-3xl font-bold text-emerald-400">R$ 0,00</div>
+                        <p id="kpi-paid-count" class="text-xs text-neutral-500 mt-1">0 contas quitadas</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Left Column: Embedded Interactive Mini-Calendar -->
+                <div class="lg:col-span-5 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-regular fa-calendar text-neutral-400"></i> Calendário do Mês
+                        </h2>
+                        <div class="flex items-center space-x-1">
+                            <button onclick="changeMonth(-1)" class="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+                            <span id="calendar-month-year" class="text-xs font-semibold text-neutral-200 px-2">Carregando...</span>
+                            <button onclick="changeMonth(1)" class="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Days of Week Header -->
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs font-medium text-neutral-500 mb-2">
+                        <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                    </div>
+
+                    <!-- Days Grid -->
+                    <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 flex-1">
+                        <!-- Dynamic Calendar Days Injection -->
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-400">
+                        <span id="selected-date-info">Clique em um dia para filtrar</span>
+                        <button onclick="resetDateFilter()" class="text-neutral-400 hover:text-white underline text-xs">Limpar filtro</button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Bills List View & Filtering -->
+                <div class="lg:col-span-7 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between">
+                    <div>
+                        <!-- Header & Filters -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Minhas Contas</h2>
+                                <p id="filter-subtitle" class="text-xs text-neutral-400">Mostrando todas as contas cadastradas</p>
+                            </div>
+
+                            <!-- Filter Pills -->
+                            <div class="flex items-center bg-black p-1 rounded-xl border border-neutral-800 text-xs overflow-x-auto">
+                                <button onclick="setFilter('all')" id="filter-all" class="filter-btn px-3 py-1.5 rounded-lg bg-neutral-800 text-white font-medium transition">Todas</button>
+                                <button onclick="setFilter('pending')" id="filter-pending" class="filter-btn px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white transition">Pendentes</button>
+                                <button onclick="setFilter('overdue')" id="filter-overdue" class="filter-btn px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white transition">Atrasadas</button>
+                                <button onclick="setFilter('paid')" id="filter-paid" class="filter-btn px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white transition">Pagas</button>
+                            </div>
+                        </div>
+
+                        <!-- Bill List Cards -->
+                        <div id="bills-container" class="space-y-3 min-h-[320px]">
+                            <!-- Dynamically generated bills will appear here -->
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-500">
+                        <span>Dica: Marque como Paga para manter suas contas em dia.</span>
+                        <span id="total-count-label">0 contas</span>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <footer class="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500 mt-8">
+            <div class="max-w-6xl mx-auto px-4">
+                Never + Duro &copy; 2026 • Organização e Controle Financeiro Pessoal
+            </div>
+        </footer>
+    </div>
+
+    <div id="bill-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl p-6 shadow-2xl relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-neutral-400 hover:text-white p-2 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 id="modal-title" class="text-lg font-bold text-white mb-4">Adicionar Nova Conta</h3>
+
+            <form id="bill-form" onsubmit="handleSaveBill(event)" class="space-y-4">
+                <input type="hidden" id="bill-id">
+
+                <div>
+                    <label class="block text-xs font-medium text-neutral-300 mb-1">Nome da Conta / Despesa *</label>
+                    <input type="text" id="bill-title" required placeholder="Ex: Cartão de Crédito, Luz, Internet" class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brandGreen">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-300 mb-1">Valor (R$) *</label>
+                        <input type="number" step="0.01" min="0" id="bill-amount" required placeholder="0,00" class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brandGreen">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-300 mb-1">Data de Vencimento *</label>
+                        <input type="date" id="bill-date" required class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brandGreen">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-300 mb-1">Categoria</label>
+                        <select id="bill-category" class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brandGreen">
+                            <option value="Moradia">Moradia (Aluguel, Luz, Água)</option>
+                            <option value="Serviços">Serviços / Assinaturas</option>
+                            <option value="Cartão">Cartão de Crédito</option>
+                            <option value="Transporte">Transporte / Combustível</option>
+                            <option value="Alimentação">Alimentação / Mercado</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-300 mb-1">Status Inicial</label>
+                        <select id="bill-status" class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brandGreen">
+                            <option value="pending">Pendente</option>
+                            <option value="paid">Paga / Em Dia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-neutral-300 mb-1">Observações (Opcional)</label>
+                    <textarea id="bill-notes" rows="2" placeholder="Código de barras, chave PIX, notas..." class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brandGreen"></textarea>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-brandGreen hover:bg-brandGreenHover text-black transition">Salvar Conta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let bills = [];
+        let currentFilter = 'all';
+        let selectedCalendarDate = null;
+        let currentDateView = new Date();
+
+        // Sample Data for first load
+        const sampleBills = [
+            {
+                id: '1',
+                title: 'Fatura do Cartão',
+                amount: 850.00,
+                dueDate: getFormattedDateOffset(1), // Amanhã
+                category: 'Cartão',
+                status: 'pending',
+                notes: 'Pagar antes das 22h pelo aplicativo do banco'
+            },
+            {
+                id: '2',
+                title: 'Conta de Luz',
+                amount: 145.30,
+                dueDate: getFormattedDateOffset(-2), // Atrasado
+                category: 'Moradia',
+                status: 'pending',
+                notes: 'Código de barras salvo'
+            },
+            {
+                id: '3',
+                title: 'Internet Fibra',
+                amount: 99.90,
+                dueDate: getFormattedDateOffset(3),
+                category: 'Serviços',
+                status: 'pending',
+                notes: 'Débito automático não agendado'
+            },
+            {
+                id: '4',
+                title: 'Assinatura Streaming',
+                amount: 39.90,
+                dueDate: getFormattedDateOffset(-5),
+                category: 'Serviços',
+                status: 'paid',
+                notes: 'Pago no dia'
+            }
+        ];
+
+        // Utility to format date offsets
+        function getFormattedDateOffset(offsetDays) {
+            const d = new Date();
+            d.setDate(d.getDate() + offsetDays);
+            return d.toISOString().split('T')[0];
+        }
+
+        // Init App
+        window.onload = function() {
+            loadBills();
+            renderCalendar();
+            renderDashboard();
+        };
+
+        // Local Storage Persistence
+        function loadBills() {
+            const stored = localStorage.getItem('never_duro_bills');
+            if (stored) {
+                try {
+                    bills = JSON.parse(stored);
+                } catch(e) {
+                    bills = [...sampleBills];
+                }
+            } else {
+                bills = [...sampleBills];
+                saveBills();
+            }
+        }
+
+        function saveBills() {
+            localStorage.setItem('never_duro_bills', JSON.stringify(bills));
+            renderDashboard();
+            renderCalendar();
+        }
+
+        // Dashboard Rendering Logic
+        function renderDashboard() {
+            const container = document.getElementById('bills-container');
+            container.innerHTML = '';
+
+            // Calculate status & auto-update overdue
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            let totalSum = 0;
+            let pendingSum = 0;
+            let paidSum = 0;
+            let pendingCount = 0;
+            let paidCount = 0;
+
+            // Filter logic
+            let filteredBills = bills.filter(bill => {
+                const isOverdue = bill.status === 'pending' && bill.dueDate < todayStr;
+                const calculatedStatus = isOverdue ? 'overdue' : bill.status;
+
+                if (selectedCalendarDate && bill.dueDate !== selectedCalendarDate) {
+                    return false;
+                }
+
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'pending') return calculatedStatus === 'pending';
+                if (currentFilter === 'overdue') return calculatedStatus === 'overdue';
+                if (currentFilter === 'paid') return calculatedStatus === 'paid';
+                return true;
+            });
+
+            // Calculate totals over all items
+            bills.forEach(bill => {
+                const amount = parseFloat(bill.amount) || 0;
+                totalSum += amount;
+
+                const isOverdue = bill.status === 'pending' && bill.dueDate < todayStr;
+                if (bill.status === 'paid') {
+                    paidSum += amount;
+                    paidCount++;
+                } else {
+                    pendingSum += amount;
+                    pendingCount++;
+                }
+            });
+
+            // Update KPI Displays
+            document.getElementById('kpi-total').innerText = formatBRL(totalSum);
+            document.getElementById('kpi-pending').innerText = formatBRL(pendingSum);
+            document.getElementById('kpi-pending-count').innerText = `${pendingCount} conta(s) pendente(s)/atrasada(s)`;
+            document.getElementById('kpi-paid').innerText = formatBRL(paidSum);
+            document.getElementById('kpi-paid-count').innerText = `${paidCount} conta(s) paga(s)`;
+
+            document.getElementById('total-count-label').innerText = `${filteredBills.length} exibida(s)`;
+
+            if (filteredBills.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-12 text-center text-neutral-500">
+                        <i class="fa-regular fa-folder-open text-4xl mb-3 text-neutral-700"></i>
+                        <p class="text-sm font-medium">Nenhuma conta encontrada</p>
+                        <p class="text-xs text-neutral-600 mt-1">Clique no botão "+ Nova Conta" para adicionar uma dívida.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by due date (ascending)
+            filteredBills.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            // Render Bill Cards
+            filteredBills.forEach(bill => {
+                const isOverdue = bill.status === 'pending' && bill.dueDate < todayStr;
+                const effectiveStatus = isOverdue ? 'overdue' : bill.status;
+
+                const card = document.createElement('div');
+                card.className = `bg-black border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition duration-150 hover:border-neutral-700 ${
+                    effectiveStatus === 'overdue' ? 'border-red-950/60 bg-red-950/10' : 'border-neutral-800'
+                }`;
+
+                // Status styling badge logic
+                let statusBadgeHTML = '';
+                if (effectiveStatus === 'paid') {
+                    statusBadgeHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800">
+                        <i class="fa-solid fa-check text-[10px] mr-1"></i> Em dia
+                    </span>`;
+                } else if (effectiveStatus === 'overdue') {
+                    statusBadgeHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-950/80 text-red-400 border border-red-800">
+                        <i class="fa-solid fa-triangle-exclamation text-[10px] mr-1"></i> Atrasada
+                    </span>`;
+                } else {
+                    statusBadgeHTML = `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-amber-400 status-pending-underline">
+                        <i class="fa-regular fa-clock text-[10px] mr-1"></i> Pendente
+                    </span>`;
+                }
+
+                // Format Due Date
+                const dateParts = bill.dueDate.split('-');
+                const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+
+                card.innerHTML = `
+                    <div class="flex items-start space-x-3.5">
+                        <button onclick="toggleStatus('${bill.id}')" title="Marcar como pago/pendente" class="mt-0.5 text-xl transition hover:scale-110">
+                            ${bill.status === 'paid'
+                                ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>'
+                                : '<i class="fa-regular fa-circle text-neutral-600 hover:text-emerald-400"></i>'
+                            }
+                        </button>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-semibold text-sm text-white ${bill.status === 'paid' ? 'line-through text-neutral-400' : ''}">${escapeHtml(bill.title)}</h3>
+                                ${statusBadgeHTML}
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs text-neutral-400 mt-1">
+                                <span><i class="fa-regular fa-calendar text-neutral-500 mr-1"></i>${formattedDate}</span>
+                                <span>•</span>
+                                <span class="bg-neutral-800 px-2 py-0.5 rounded-md text-[11px] text-neutral-300">${escapeHtml(bill.category || 'Geral')}</span>
+                            </div>
+                            ${bill.notes ? `<p class="text-xs text-neutral-500 mt-1 italic">${escapeHtml(bill.notes)}</p>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between sm:justify-end space-x-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-800">
+                        <div class="text-right">
+                            <span class="text-xs text-neutral-500 block sm:hidden">Valor</span>
+                            <span class="font-bold text-base text-white">${formatBRL(bill.amount)}</span>
+                        </div>
+
+                        <div class="flex items-center space-x-1">
+                            <button onclick="exportToCalendar('${bill.id}')" title="Adicionar ao Google Agenda" class="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-neutral-800 rounded-lg transition text-xs flex items-center gap-1">
+                                <i class="fa-regular fa-calendar-plus"></i>
+                            </button>
+                            <button onclick="editBill('${bill.id}')" title="Editar" class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition text-xs">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteBill('${bill.id}')" title="Excluir" class="p-2 text-neutral-400 hover:text-red-400 hover:bg-neutral-800 rounded-lg transition text-xs">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-days-grid');
+            grid.innerHTML = '';
+
+            const year = currentDateView.getFullYear();
+            const month = currentDateView.getMonth();
+
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            document.getElementById('calendar-month-year').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Map bills by date for quick lookup
+            const billMap = {};
+            bills.forEach(b => {
+                billMap[b.dueDate] = billMap[b.dueDate] || [];
+                billMap[b.dueDate].push(b);
+            });
+
+            // Empty cells before first day
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = "h-9 rounded-lg bg-transparent";
+                grid.appendChild(emptyCell);
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasBills = billMap[dayString] && billMap[dayString].length > 0;
+
+                const dayCell = document.createElement('button');
+                dayCell.onclick = () => selectCalendarDate(dayString);
+
+                let cellClasses = "h-9 rounded-lg text-xs font-medium relative flex flex-col items-center justify-center transition border ";
+
+                if (dayString === selectedCalendarDate) {
+                    cellClasses += "bg-white text-black border-white font-bold ";
+                } else if (dayString === todayStr) {
+                    cellClasses += "bg-neutral-800 text-brandGreen border-brandGreen/50 ";
+                } else {
+                    cellClasses += "bg-black text-neutral-300 border-neutral-800/80 hover:bg-neutral-800 hover:border-neutral-700 ";
+                }
+
+                dayCell.className = cellClasses;
+                dayCell.innerText = day;
+
+                // Add dot indicators for bills
+                if (hasBills) {
+                    const dotContainer = document.createElement('div');
+                    dotContainer.className = "flex space-x-0.5 absolute bottom-1";
+
+                    const dayBills = billMap[dayString];
+                    const hasOverdue = dayBills.some(b => b.status === 'pending' && b.dueDate < todayStr);
+                    const hasPending = dayBills.some(b => b.status === 'pending' && b.dueDate >= todayStr);
+                    const allPaid = dayBills.every(b => b.status === 'paid');
+
+                    let dotColor = "bg-emerald-400";
+                    if (hasOverdue) dotColor = "bg-red-500";
+                    else if (hasPending) dotColor = "bg-amber-400";
+
+                    const dot = document.createElement('span');
+                    dot.className = `w-1.5 h-1.5 rounded-full ${dotColor}`;
+                    dotContainer.appendChild(dot);
+
+                    dayCell.appendChild(dotContainer);
+                }
+
+                grid.appendChild(dayCell);
+            }
+        }
+
+        function changeMonth(delta) {
+            currentDateView.setMonth(currentDateView.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function selectCalendarDate(dateStr) {
+            if (selectedCalendarDate === dateStr) {
+                selectedCalendarDate = null;
+                document.getElementById('selected-date-info').innerText = 'Clique em um dia para filtrar';
+            } else {
+                selectedCalendarDate = dateStr;
+                const [y, m, d] = dateStr.split('-');
+                document.getElementById('selected-date-info').innerText = `Filtrando pelo dia ${d}/${m}/${y}`;
+            }
+            renderCalendar();
+            renderDashboard();
+        }
+
+        function resetDateFilter() {
+            selectedCalendarDate = null;
+            document.getElementById('selected-date-info').innerText = 'Clique em um dia para filtrar';
+            renderCalendar();
+            renderDashboard();
+        }
+
+        // Filter Toggle Controls
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.className = "filter-btn px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white transition";
+            });
+            const activeBtn = document.getElementById(`filter-${filter}`);
+            if (activeBtn) {
+                activeBtn.className = "filter-btn px-3 py-1.5 rounded-lg bg-neutral-800 text-white font-medium transition";
+            }
+
+            const subtitles = {
+                all: 'Mostrando todas as contas cadastradas',
+                pending: 'Mostrando apenas contas pendentes',
+                overdue: 'Mostrando apenas contas em atraso',
+                paid: 'Mostrando apenas contas quitadas'
+            };
+            document.getElementById('filter-subtitle').innerText = subtitles[filter] || '';
+
+            renderDashboard();
+        }
+
+        function toggleStatus(id) {
+            const bill = bills.find(b => b.id === id);
+            if (bill) {
+                bill.status = bill.status === 'paid' ? 'pending' : 'paid';
+                saveBills();
+            }
+        }
+
+        function deleteBill(id) {
+            bills = bills.filter(b => b.id !== id);
+            saveBills();
+        }
+
+        function editBill(id) {
+            const bill = bills.find(b => b.id === id);
+            if (!bill) return;
+
+            document.getElementById('bill-id').value = bill.id;
+            document.getElementById('bill-title').value = bill.title;
+            document.getElementById('bill-amount').value = bill.amount;
+            document.getElementById('bill-date').value = bill.dueDate;
+            document.getElementById('bill-category').value = bill.category || 'Moradia';
+            document.getElementById('bill-status').value = bill.status || 'pending';
+            document.getElementById('bill-notes').value = bill.notes || '';
+
+            document.getElementById('modal-title').innerText = 'Editar Conta';
+            openModal();
+        }
+
+        function handleSaveBill(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('bill-id').value;
+            const title = document.getElementById('bill-title').value.trim();
+            const amount = parseFloat(document.getElementById('bill-amount').value);
+            const dueDate = document.getElementById('bill-date').value;
+            const category = document.getElementById('bill-category').value;
+            const status = document.getElementById('bill-status').value;
+            const notes = document.getElementById('bill-notes').value.trim();
+
+            if (id) {
+                // Update
+                const index = bills.findIndex(b => b.id === id);
+                if (index !== -1) {
+                    bills[index] = { id, title, amount, dueDate, category, status, notes };
+                }
+            } else {
+                // Create
+                const newBill = {
+                    id: Date.now().toString(),
+                    title,
+                    amount,
+                    dueDate,
+                    category,
+                    status,
+                    notes
+                };
+                bills.push(newBill);
+            }
+
+            saveBills();
+            closeModal();
+        }
+
+        // Modal Controls
+        function openModal() {
+            if (!document.getElementById('bill-id').value) {
+                document.getElementById('bill-form').reset();
+                // Set default date to selected date or today
+                document.getElementById('bill-date').value = selectedCalendarDate || new Date().toISOString().split('T')[0];
+                document.getElementById('modal-title').innerText = 'Adicionar Nova Conta';
+            }
+            document.getElementById('bill-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('bill-modal').classList.add('hidden');
+            document.getElementById('bill-id').value = '';
+            document.getElementById('bill-form').reset();
+        }
+
+        // Export to Google Calendar
+        function exportToCalendar(id) {
+            const bill = bills.find(b => b.id === id);
+            if (!bill) return;
+
+            const title = encodeURIComponent(`Vencimento: ${bill.title} (R$ ${bill.amount.toFixed(2)})`);
+            const details = encodeURIComponent(`Lembrete de Pagamento de Conta\nValor: R$ ${bill.amount.toFixed(2)}\nCategoria: ${bill.category}\nNotas: ${bill.notes || 'Sem observações'}`);
+            
+            // Format date for Google Calendar YYYYMMDD
+            const cleanDate = bill.dueDate.replace(/-/g, '');
+            const dates = `${cleanDate}/${cleanDate}`;
+
+            const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
+            
+            window.open(googleCalendarUrl, '_blank');
+        }
+
+        // Formatting Helpers
+        function formatBRL(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[m];
+            });
+        }
+    </script>
+</body>
+</html>
